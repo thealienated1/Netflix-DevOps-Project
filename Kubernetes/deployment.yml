@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: netflix-app
-        image: thealienated1/netflix
+        image: thealienated1/netflix:latest
         ports:
         - containerPort: 80
