@@ -1,98 +1,41 @@
-pipeline{
-    agent any
-    tools{
-        jdk 'jdk17'
-        nodejs 'node16'
-    }
+pipeline {
+    agent none
     environment {
-        SCANNER_HOME=tool 'sonar-scanner'
+        DOCKERHUB_CREDENTIALS=credentials('28f9d293-6cbf-4bde-bc1d-787ecda85ccf')
     }
     stages {
-        stage('clean workspace'){
-            steps{
-                cleanWs()
-            }
-        }
-        stage('Checkout from Git'){
-            steps{
-                git branch: 'main', url: 'https://github.com/Aj7Ay/Netflix-clone.git'
-            }
-        }
-        stage("Sonarqube Analysis "){
-            steps{
-                withSonarQubeEnv('sonar-server') {
-                    sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Netflix \
-                    -Dsonar.projectKey=Netflix '''
-                }
-            }
-        }
-        stage("quality gate"){
-           steps {
-                script {
-                    waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token' 
-                }
-            } 
-        }
-        stage('Install Dependencies') {
+        stage('Hello') {
             steps {
-                sh "npm install"
+                echo 'TEST Begins'
             }
         }
-        stage('OWASP FS SCAN') {
+        stage('Git') {
+            agent {
+                label 'K8'
+            }
             steps {
-                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
-                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+                git branch: 'main', url: 'https://github.com/thealienated1/Netflix-DevOps-Project.git'
             }
         }
-        stage('TRIVY FS SCAN') {
+        stage('Docker') {
+            agent {
+                label 'K8'
+            }
             steps {
-                sh "trivy fs . > trivyfs.txt"
+                sh 'sudo docker build /home/ubuntu/jenkins/workspace/netflix -t thealienated1/netflix1'
+                sh 'sudo echo $DOCKERHUB_CREDENTIALS_PSW | sudo docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+                sh 'sudo docker push thealienated1/netflix1'
             }
         }
-        stage("Docker Build & Push"){
-            steps{
-                script{
-                   withDockerRegistry(credentialsId: 'docker', toolName: 'docker'){   
-                       sh "docker build --build-arg TMDB_V3_API_KEY=<yourtmdbapikey> -t netflix ."
-                       sh "docker tag netflix nasi101/netflix:latest "
-                       sh "docker push nasi101/netflix:latest "
-                    }
-                }
-            }
-        }
-        stage("TRIVY"){
-            steps{
-                sh "trivy image nasi101/netflix:latest > trivyimage.txt" 
-            }
-        }
-        stage('Deploy to container'){
-            steps{
-                sh 'docker run -d -p 8081:80 nasi101/netflix:latest'
-            }
-        }
-        stage('Deploy to kubernets'){
-            steps{
-                script{
-                    dir('Kubernetes') {
-                        withKubeConfig(caCertificate: '', clusterName: '', contextName: '', credentialsId: 'k8s', namespace: '', restrictKubeConfigAccess: false, serverUrl: '') {
-                                sh 'kubectl apply -f deployment.yml'
-                                sh 'kubectl apply -f service.yml'
-                        }   
-                    }
-                }
-            }
-        }
-
+        stage('KUBEs') {
+    agent {
+        label 'K8'
     }
-    post {
-     always {
-        emailext attachLog: true,
-            subject: "'${currentBuild.result}'",
-            body: "Project: ${env.JOB_NAME}<br/>" +
-                "Build Number: ${env.BUILD_NUMBER}<br/>" +
-                "URL: ${env.BUILD_URL}<br/>",
-            to: 'iambatmanthegoat@gmail.com',                                #change mail here
-            attachmentsPattern: 'trivyfs.txt,trivyimage.txt'
-        }
+    steps {                
+        sh 'kubectl apply -f /home/ubuntu/jenkins/workspace/netflix/Kubernetes/deployment.yml'
+        sh 'kubectl apply -f /home/ubuntu/jenkins/workspace/netflix/Kubernetes/service.yml'
+    }
+}
+
     }
 }
