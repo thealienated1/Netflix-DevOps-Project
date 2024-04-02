@@ -4,11 +4,6 @@ pipeline {
         DOCKERHUB_CREDENTIALS=credentials('28f9d293-6cbf-4bde-bc1d-787ecda85ccf')
     }
     stages {
-        stage('Hello') {
-            steps {
-                echo 'TEST Begins'
-            }
-        }
         stage('Git') {
             agent {
                 label 'K8'
@@ -28,14 +23,14 @@ pipeline {
             }
         }
         stage('KUBEs') {
-    agent {
-        label 'K8'
-    }
-    steps {                
-        sh 'kubectl apply -f /home/ubuntu/jenkins/workspace/netflix/Kubernetes/deployment.yml'
-        sh 'kubectl apply -f /home/ubuntu/jenkins/workspace/netflix/Kubernetes/service.yml'
+            agent {
+                label 'K8'
+            }
+            steps {                
+                sh 'kubectl apply -f /home/ubuntu/jenkins/workspace/netflix/Kubernetes/deployment.yml'
+                sh 'kubectl apply -f /home/ubuntu/jenkins/workspace/netflix/Kubernetes/service.yml'
+            }
+        }
     }
 }
 
-    }
-}
